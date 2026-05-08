@@ -2,11 +2,16 @@ const { query } = require('../database');
 const { EMPTY_RESULT_ERROR, SQL_ERROR_CODE, UNIQUE_VIOLATION_ERROR } = require('../errors');
 
 module.exports.create = function create(code, name, credit) { 
-return query('CALL create_module($1, $2, $3)', [code, name, credit]) 
+const sql = 'CALL create_module($1, $2, $3)'; 
+return query(sql, [code, name, credit]) 
 .then(function (result) { 
 console.log('Module created successfully'); 
 }) 
 .catch(function (error) { 
+if (error.code === SQL_ERROR_CODE.UNIQUE_VIOLATION) { 
+throw new UNIQUE_VIOLATION_ERROR(`Module ${code} already exists! 
+Cannot create duplicate.`); 
+} 
 throw error; 
 }); 
 };
