@@ -35,7 +35,7 @@ module.exports.deleteByCode = function deleteByCode(code) {
     // Note:
     // If using raw sql: Can use result.rowCount to check the number of rows affected
     // But if using function/stored procedure, result.rowCount will always return null
-    const sql = `DELETE FROM module WHERE mod_code = $1`;
+    const sql = `CALL delete_module`;
     return query(sql, [code]).then(function (result) {
         const rows = result.rowCount;
 
@@ -48,19 +48,20 @@ module.exports.deleteByCode = function deleteByCode(code) {
 };
 
 module.exports.updateByCode = function updateByCode(code, credit) {
-    // Note:
-    // If using raw sql: Can use result.rowCount to check the number of rows affected
-    // But if using function/stored procedure, result.rowCount will always return null
-    const sql = `UPDATE module SET credit_unit = $1 WHERE mod_code = $2`;
-    return query(sql, [credit, code]).then(function (result) {
-        const rows = result.rowCount;
+    // 1. Ensure the SQL string uses the correct procedure name
+    const sql = `CALL update_module($1, $2)`;
 
-        if (rows === 0) {
-            // Note: result.rowCount returns the number of rows processed instead of returned
-            // Read more: https://node-postgres.com/apis/result#resultrowcount-int--null
-            throw new EMPTY_RESULT_ERROR(`Module ${code} not found!`);
-        }
-    })
+    // 2. SWAP the order here: code first ($1), then credit ($2)
+    // Also, use parseInt to ensure 'credit' is a number
+    return query(sql, [code, parseInt(credit, 10)]).then(function (result) {
+        
+        // Note on rowCount: 
+        // Since your SQL procedure uses "RAISE EXCEPTION", 
+        // if the module is not found, this .then() won't even run.
+        // The error will skip straight to your .catch() block.
+        
+        return result; 
+    });
 };
 
 module.exports.retrieveAll = function retrieveAll() {
