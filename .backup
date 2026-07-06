@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 1. DEPARTMENTS & COURSES
+// ==========================================
+
+model department {
+  deptCode         String    @id @map("dept_code") @db.VarChar(5)
+  deptName         String    @map("dept_name") @db.VarChar(100)
+  hod              String    @db.Char(4)
+  noOfStaff        Int?      @map("no_of_staff")
+  maxStaffStrength Int?      @map("max_staff_strength")
+  budget           Decimal?  @db.Decimal(9, 2)
+  expenditure      Decimal?  @db.Decimal(9, 2)
+  hodApptDate      DateTime? @map("hod_appt_date") @db.Date
+
+  // Relationships
+  departmentHodToStaff      staff    @relation("departmentHodToStaff", fields: [hod], references: [staffNo], onDelete: NoAction, onUpdate: NoAction, map: "dept_hod_fk")
+  staffDeptCodeToDepartment staff[]  @relation("staffDeptCodeToDepartment")
+  courses                   course[]
+
+  @@map("department")
+}
+
+model course {
+  crseCode  String   @id @map("crse_code") @db.VarChar(5)
+  crseName  String   @map("crse_name") @db.VarChar(100)
+  offeredBy String   @map("offered_by") @db.VarChar(5)
+  crseFee   Decimal  @map("crse_fee") @db.Decimal(7, 2)
+  labFee    Decimal? @map("lab_fee") @db.Decimal(7, 2)
+
+  // Back-relations
+  department department @relation(fields: [offeredBy], references: [deptCode], map: "fk_course_offered_by")
+  students   student[]
+
+  @@map("course")
+}
+
+// ==========================================
+// 2. STAFF & DEPENDENTS
+// ==========================================
+
+model staff {
+  staffNo           String   @id @map("staff_no") @db.Char(4)
+  staffName         String   @map("staff_name") @db.VarChar(100)
+  supervisorStaffNo String?  @map("supervisor_staff_no") @db.Char(4)
+  dob               DateTime @db.Date
+  grade             String   @db.VarChar(5)
+  maritalStatus     String   @map("marital_status") @db.VarChar(1)
+  pay               Decimal? @db.Decimal(7, 2)
+  allowance         Decimal? @db.Decimal(7, 2)
+  hourlyRate        Decimal? @map("hourly_rate") @db.Decimal(7, 2)
+  gender            String   @db.Char(1)
+  citizenship       String   @db.VarChar(10)
+  joinYr            Int      @map("join_yr")
+  deptCode          String   @map("dept_code") @db.VarChar(5)
+  typeOfEmployment  String   @map("type_of_employment") @db.VarChar(2)
+  highestQln        String   @map("highest_qln") @db.VarChar(10)
+  designation       String   @db.VarChar(20)
+
+  // Relationships
+  staffDependent            staff_dependent[]
+  departmentHodTostaff      department[]      @relation("departmentHodToStaff")
+  staffDeptCodeToDepartment department        @relation("staffDeptCodeToDepartment", fields: [deptCode], references: [deptCode], onDelete: NoAction, onUpdate: NoAction, map: "staff_dept_code_fk")
+  coordinatedModules        module[]          @relation("staffToModuleCoord")
+
+  @@map("staff")
+}
+
+model staff_dependent {
+  staffNo       String @map("staff_no") @db.Char(4)
+  dependentName String @map("dependent_name") @db.VarChar(30)
+  relationship  String @db.VarChar(20)
+
+  // Relationships
+  staff staff @relation(fields: [staffNo], references: [staffNo], onDelete: NoAction, onUpdate: NoAction, map: "staff_dependent_staff_no_fk")
+
+  @@id([staffNo, dependentName])
+  @@map("staff_dependent")
+}
+
+model staffBackup {
+  staffNo          String   @id @map("staff_no") @db.Char(4)
+  staffName        String   @map("staff_name") @db.VarChar(100)
+  supervisor       String?  @db.Char(4)
+  dob              DateTime @db.Date
+  grade            String   @db.VarChar(5)
+  maritalStatus    String   @map("marital_status") @db.VarChar(1)
+  pay              Decimal? @db.Decimal(7, 2)
+  allowance        Decimal? @db.Decimal(7, 2)
+  hourlyRate       Decimal? @map("hourly_rate") @db.Decimal(7, 2)
+  gender           String   @db.Char(1)
+  citizenship      String   @db.VarChar(10)
+  joinYr           Int      @map("join_yr")
+  deptCode         String   @map("dept_code") @db.VarChar(5)
+  typeOfEmployment String   @map("type_of_employment") @db.VarChar(2)
+  highestQln       String   @map("highest_qln") @db.VarChar(10)
+  designation      String   @db.VarChar(20)
+
+  @@map("staff_backup")
+}
+
+// ==========================================
+// 3. MODULES & PREREQUISITES
+// ==========================================
+
+model module {
+  modCode    String @id @map("mod_code") @db.VarChar(10)
+  modName    String @map("mod_name") @db.VarChar(100)
+  creditUnit Int    @map("credit_unit")
+  modCoord   String @map("mod_coord") @db.Char(4)
+
+  // Relationships
+  preRequisiteModCodeToModule   pre_requisite[]        @relation("preRequisiteModCodeToModule")
+  preRequisiteRequisiteToModule pre_requisite[]        @relation("preRequisiteRequisiteToModule")
+  coordinator                   staff?                 @relation("staffToModuleCoord", fields: [modCoord], references: [staffNo], map: "mod_mod_coord_fk")
+  performances                  stud_mod_performance[] @relation("ModuleToStudentModPerformance")
+
+  @@map("module")
+}
+
+model pre_requisite {
+  mod_code  String @map("mod_code") @db.VarChar(10)
+  requisite String @map("requisite") @db.VarChar(10)
+
+  // Relationships
+  preRequisiteModCodeToModule   module @relation("preRequisiteModCodeToModule", fields: [mod_code], references: [modCode], onDelete: NoAction, onUpdate: NoAction, map: "pre_requisite_mod_code_fk")
+  preRequisiteRequisiteToModule module @relation("preRequisiteRequisiteToModule", fields: [requisite], references: [modCode], onDelete: NoAction, onUpdate: NoAction, map: "pre_requisite_requisite_fk")
+
+  @@id([mod_code, requisite])
+  @@map("pre_requisite")
+}
+
+// ==========================================
+// 4. STUDENTS & PERFORMANCE
+// ==========================================
+
+model student {
+  adm_no         String    @id @map("adm_no") @db.Char(4)
+  stud_name      String    @map("stud_name") @db.VarChar(30)
+  gender         String    @map("gender") @db.Char(1)
+  address        String    @map("address") @db.VarChar(100)
+  mobile_phone   String    @map("mobile_phone") @db.Char(8)
+  home_phone     String    @map("home_phone") @db.Char(8)
+  dob            DateTime  @map("dob") @db.Date
+  nationality    String    @map("nationality") @db.VarChar(30)
+  crse_code      String    @map("crse_code") @db.VarChar(5)
+  gpa            Decimal?  @map("gpa") @db.Decimal(4, 2)
+  gpaLastUpdated DateTime? @map("gpa_last_updated") @db.Date
+
+  // Relation 1: Links 'crse_code' to the course model
+  course course @relation(fields: [crse_code], references: [crseCode], onDelete: NoAction, onUpdate: NoAction, map: "student_crse_code_fk")
+
+  // Relation 2: Links 'nationality' to the country model
+  country country @relation(fields: [nationality], references: [country_name], onDelete: NoAction, onUpdate: NoAction, map: "student_nationality_fk")
+
+  // Back-relation array link (The duplicate studModPerformances has been safely removed)
+  performances stud_mod_performance[] @relation("studModPerformanceToStudent")
+
+  @@map("student")
+}
+
+model stud_mod_performance {
+  adm_no         String @map("adm_no") @db.Char(4)
+  mod_registered String @db.VarChar(10)
+  mark           Int    @map("mark")
+  grade          String @map("grade") @db.Char(2)
+
+  // This side hosts the actual foreign keys, so fields/references belong here
+  module  module  @relation("ModuleToStudentModPerformance", fields: [mod_registered], references: [modCode], onDelete: NoAction, onUpdate: NoAction, map: "modCode_mod_registered")
+  student student @relation("studModPerformanceToStudent", fields: [adm_no], references: [adm_no], onDelete: NoAction, onUpdate: NoAction, map: "student_stud_mod_performance")
+
+  @@id([adm_no, mod_registered])
+  @@map("stud_mod_performance")
+}
+
+// ==========================================
+// 5. SECURITY & MISCELLANEOUS
+// ==========================================
+
+model userAccount {
+  id        Int    @id
+  accountNo String @map("account_no") @db.VarChar(6)
+  role      Int
+  password  String @db.VarChar(255)
+
+  @@map("user_account")
+}
+
+model userRole {
+  id   Int    @id
+  name String @db.VarChar(25)
+
+  @@map("user_role")
+}
+
+model country {
+  country_name String @id @map("country_name") @db.VarChar(30)
+  language     String @map("language") @db.VarChar(30)
+  region       String @map("region") @db.VarChar(30)
+
+  // Back-relation
+  students student[]
+
+  @@map("country")
+}
